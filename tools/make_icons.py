@@ -1,7 +1,7 @@
 from PIL import Image, ImageDraw
 import math, os
 
-OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "icons")
+OUT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "icons")
 os.makedirs(OUT, exist_ok=True)
 
 def rounded_gradient(size, radius_ratio=0.22):
@@ -53,7 +53,8 @@ def build(size, maskable=False):
     draw_heart(d, cx, cy + heart_w * 0.08, heart_w, (255, 255, 255, 255))
     draw_pulse(d, cx, cy - heart_w * 0.01, heart_w * 0.78, (232, 90, 134, 255),
                max(4, int(heart_w * 0.10)))
-    return img
+    # 4 倍超采样绘制,缩回目标尺寸保证清晰且尺寸正确
+    return img.resize((size, size), Image.LANCZOS)
 
 build(512).save(os.path.join(OUT, "icon-512.png"))
 build(192).save(os.path.join(OUT, "icon-192.png"))
