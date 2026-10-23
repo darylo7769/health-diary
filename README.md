@@ -1,6 +1,6 @@
 # 每日健康 · 健康记账 PWA
 
-> 像记账一样记录每天的 **体重 / 心率 / 血压**
+> 像记账一样记录每天的 **体重 / 心率/ 血压**
 
 - **在线使用:** https://darylo7769.github.io/health-diary/
 - **仓库地址:** https://github.com/darylo7769/health-diary
