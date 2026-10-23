@@ -63,9 +63,21 @@ function bmiInfo() {
 }
 
 /* ================= 查询 ================= */
-const ofType = t => records.filter(r => r.type === t).sort((a, b) => b.ts - a.ts);
-const latestOf = t => ofType(t)[0] || null;
-const prevOf = t => ofType(t)[1] || null;
+// O(n) 查找最新/次新记录,避免反复 filter+sort
+function latestOf(t) {
+  let best = null;
+  for (const r of records) if (r.type === t && (!best || r.ts > best.ts)) best = r;
+  return best;
+}
+function prevOf(t) {
+  let b1 = null, b2 = null;
+  for (const r of records) {
+    if (r.type !== t) continue;
+    if (!b1 || r.ts > b1.ts) { b2 = b1; b1 = r; }
+    else if (!b2 || r.ts > b2.ts) b2 = r;
+  }
+  return b2;
+}
 
 function streakDays() {
   const keys = new Set(records.map(r => dayKey(r.ts)));
@@ -213,12 +225,19 @@ let chartMetric = 'weight';
 let chartRange = 7;
 
 function buildSeries(metric, days) {
+  // 先按天分组,O(n) 代替逐天 filter
+  const groups = new Map();
+  for (const r of records) {
+    if (r.type !== metric) continue;
+    const k = dayKey(r.ts);
+    const arr = groups.get(k);
+    if (arr) arr.push(r); else groups.set(k, [r]);
+  }
   const out = [];
   const base = new Date(); base.setHours(0, 0, 0, 0);
   for (let i = days - 1; i >= 0; i--) {
     const d = new Date(base); d.setDate(d.getDate() - i);
-    const k = dayKey(d.getTime());
-    const day = records.filter(r => r.type === metric && dayKey(r.ts) === k);
+    const day = groups.get(dayKey(d.getTime())) || [];
     const p = { label: `${d.getMonth() + 1}/${d.getDate()}`, value: null, sys: null, dia: null };
     if (day.length) {
       if (metric === 'bp') {
@@ -471,6 +490,58 @@ function toast(msg) {
   el._t = setTimeout(() => el.classList.remove('show'), 1800);
 }
 
+/* ---------- iOS 主屏幕 App 兼容 ---------- */
+// standalone 模式下 confirm()/blob 下载不可用
+const isStandalone = () =>
+  window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+
+// 自定义确认框,返回 Promise<boolean>
+function showConfirm(msg, okText = '确定') {
+  return new Promise(resolve => {
+    const mask = document.getElementById('confirm-mask');
+    const ok = document.getElementById('confirm-ok');
+    const cancel = document.getElementById('confirm-cancel');
+    document.getElementById('confirm-text').textContent = msg;
+    ok.textContent = okText;
+    mask.classList.add('show');
+    const done = val => {
+      mask.classList.remove('show');
+      ok.onclick = cancel.onclick = mask.onclick = null;
+      resolve(val);
+    };
+    ok.onclick = () => done(true);
+    cancel.onclick = () => done(false);
+    mask.onclick = e => { if (e.target === mask) done(false); };
+  });
+}
+
+// 导出:浏览器走下载;主屏幕 App 走文本弹层 + 复制
+function deliverFile(name, content, mime) {
+  if (isStandalone()) return showExportText(name, content);
+  downloadFile(name, content, mime);
+  toast('已导出');
+}
+
+function showExportText(name, content) {
+  const mask = document.getElementById('export-mask');
+  document.getElementById('export-title').textContent =
+    name + '(主屏幕模式无法下载,请复制保存)';
+  document.getElementById('export-text').value = content;
+  mask.classList.add('show');
+}
+
+function copyExportText() {
+  const ta = document.getElementById('export-text');
+  const done = () => toast('已复制,可粘贴到备忘录保存');
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(ta.value).then(done).catch(() => { ta.select(); document.execCommand('copy'); done(); });
+  } else {
+    ta.focus(); ta.select();
+    try { document.execCommand('copy'); } catch {}
+    done();
+  }
+}
+
 function saveSheet() {
   const ts = new Date(sheetTime.value).getTime();
   if (!sheetTime.value || isNaN(ts)) return toast('请选择时间');
@@ -510,9 +581,9 @@ function saveSheet() {
   refreshAll();
 }
 
-function deleteSheet() {
+async function deleteSheet() {
   if (!editingId) return;
-  if (!confirm('确定删除这条记录吗?')) return;
+  if (!(await showConfirm('确定删除这条记录吗?', '删除'))) return;
   records = records.filter(r => r.id !== editingId);
   saveRecords();
   closeSheet();
@@ -548,15 +619,13 @@ function exportCsv() {
       r.type === 'bp' ? r.dia : '',
       r.note || '']);
   });
-  const csv = '﻿' + rows.map(row => row.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
-  downloadFile(`每日健康数据_${dayKey(Date.now())}.csv`, csv, 'text/csv;charset=utf-8');
-  toast('CSV 已导出');
+  const csv = '\uFEFF' + rows.map(row => row.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+  deliverFile(`每日健康数据_${dayKey(Date.now())}.csv`, csv, 'text/csv;charset=utf-8');
 }
 
 function exportJson() {
   if (!records.length) return toast('暂无数据可导出');
-  downloadFile(`每日健康备份_${dayKey(Date.now())}.json`, JSON.stringify({ records, settings }, null, 2), 'application/json');
-  toast('备份已导出');
+  deliverFile(`每日健康备份_${dayKey(Date.now())}.json`, JSON.stringify({ records, settings }, null, 2), 'application/json');
 }
 
 function importJson(file) {
@@ -584,8 +653,8 @@ function importJson(file) {
   reader.readAsText(file);
 }
 
-function seedDemo() {
-  if (records.length && !confirm('已有数据,继续追加示例数据吗?')) return;
+async function seedDemo() {
+  if (records.length && !(await showConfirm('已有数据,继续追加示例数据吗?', '追加'))) return;
   const base = new Date(); base.setHours(0, 0, 0, 0);
   const rand = (a, b) => a + Math.random() * (b - a);
   let w = 66.5;
@@ -696,16 +765,25 @@ function bind() {
     e.target.value = '';
   });
   document.getElementById('btn-seed').addEventListener('click', seedDemo);
-  document.getElementById('btn-clear').addEventListener('click', () => {
-    if (!confirm('确定清空全部数据吗?此操作不可恢复!')) return;
+  document.getElementById('btn-clear').addEventListener('click', async () => {
+    if (!(await showConfirm('确定清空全部数据吗?此操作不可恢复!', '清空'))) return;
     records = [];
     saveRecords();
     refreshAll();
     toast('已清空');
   });
 
+  // 导出弹层按钮
+  document.getElementById('export-close').addEventListener('click', () =>
+    document.getElementById('export-mask').classList.remove('show'));
+  document.getElementById('export-copy').addEventListener('click', copyExportText);
+
+  let resizeT;
   window.addEventListener('resize', () => {
-    if (document.getElementById('page-charts').classList.contains('active')) renderCharts();
+    clearTimeout(resizeT);
+    resizeT = setTimeout(() => {
+      if (document.getElementById('page-charts').classList.contains('active')) renderCharts();
+    }, 150);
   });
 }
 
