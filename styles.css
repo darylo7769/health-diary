@@ -337,48 +337,6 @@ input { font-family: inherit; }
 }
 #toast.show { transform: translate(-50%, 0); }
 
-/* ---------- 弹窗(确认 / 导出) ---------- */
-.mask {
-  position: fixed; inset: 0; z-index: 150;
-  background: rgba(15,23,32,.5);
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
-  display: flex; align-items: center; justify-content: center;
-  padding: 32px;
-  opacity: 0; pointer-events: none; transition: opacity .2s;
-}
-.mask.show { opacity: 1; pointer-events: auto; }
-.dialog {
-  background: #fff; border-radius: 18px;
-  padding: 22px 20px 16px;
-  width: 100%; max-width: 320px;
-  transform: scale(.92);
-  transition: transform .2s cubic-bezier(.2,.8,.25,1);
-}
-.mask.show .dialog { transform: scale(1); }
-#confirm-text { font-size: 15px; font-weight: 600; text-align: center; line-height: 1.5; margin-bottom: 18px; }
-.dialog-btns { display: flex; gap: 10px; }
-.dialog-btns button {
-  flex: 1; padding: 12px 0; border-radius: 12px;
-  font-size: 14px; font-weight: 700;
-  background: #f0f2f5; color: var(--text);
-  transition: transform .12s;
-}
-.dialog-btns button:active { transform: scale(.96); }
-.dialog-btns .danger-btn { background: rgba(229,72,77,.12); color: var(--danger); }
-.dialog-btns .primary-btn {
-  background: linear-gradient(135deg, var(--primary), #fbb0c4); color: #fff;
-  box-shadow: 0 4px 10px rgba(244,114,154,.3);
-}
-.export-dialog { max-width: 400px; }
-.export-title { font-size: 13px; font-weight: 700; margin-bottom: 10px; word-break: break-all; }
-#export-text {
-  width: 100%; height: 180px; border: none; outline: none;
-  background: #f4f6f8; border-radius: 10px; padding: 10px;
-  font-size: 11px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  resize: none; margin-bottom: 12px; color: var(--text);
-}
-
 /* ---------- 通用弹层(确认/导出) ---------- */
 .dialog-mask {
   position: fixed; inset: 0; z-index: 300;
