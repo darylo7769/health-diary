@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <title>每日健康</title>
+  <meta name="description" content="每天记录体重、心率、血压">
+  <meta name="theme-color" content="#f4729a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="每日健康">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon-180.png">
+  <link rel="icon" type="image/png" href="./icons/icon-192.png">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div id="app">
+    <main id="pages">
+
+      <!-- 首页 -->
+      <section id="page-home" class="page active">
+        <div class="home-hero">
+          <div class="home-hero-top">
+            <div>
+              <h1 class="app-title">每日健康</h1>
+              <p class="app-sub" id="home-date">--</p>
+            </div>
+            <div class="streak-badge" id="streak-badge" title="连续记录天数">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c1 4-2 5-2 8a4 4 0 0 0 8 .5C18 8 16 4 12 2z"/><path d="M8.5 14.5A4.5 4.5 0 1 0 12 11"/></svg>
+              <span id="streak-num">0</span> 天
+            </div>
+          </div>
+        </div>
+
+        <div class="home-cards">
+          <div class="metric-card" id="card-weight"></div>
+          <div class="metric-card" id="card-heart"></div>
+          <div class="metric-card" id="card-bp"></div>
+        </div>
+
+        <div class="quick-add">
+          <button class="quick-btn" data-quick="weight">
+            <span class="quick-ico" style="--c:var(--c-weight)"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M8 9h3"/><path d="M12 15a3 3 0 0 0 6 0"/></svg></span>
+            记体重
+          </button>
+          <button class="quick-btn" data-quick="heart">
+            <span class="quick-ico" style="--c:var(--c-heart)"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20s-7-4.6-9-9a5 5 0 0 1 9-3 5 5 0 0 1 9 3c-2 4.4-9 9-9 9z"/><path d="M4 12h4l2-3 3 6 2-3h5"/></svg></span>
+            记心率
+          </button>
+          <button class="quick-btn" data-quick="bp">
+            <span class="quick-ico" style="--c:var(--c-bp)"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c3.2 4.2 6 7 6 10a6 6 0 1 1-12 0c0-3 2.8-5.8 6-10z"/></svg></span>
+            记血压
+          </button>
+        </div>
+
+        <h2 class="sec-title">今日记录</h2>
+        <div id="today-list" class="rec-list"></div>
+      </section>
+
+      <!-- 趋势 -->
+      <section id="page-charts" class="page">
+        <header class="page-head"><h1>趋势</h1></header>
+        <div class="seg" id="metric-seg">
+          <button data-metric="weight" class="active">体重</button>
+          <button data-metric="heart">心率</button>
+          <button data-metric="bp">血压</button>
+        </div>
+        <div class="seg seg-small" id="range-seg">
+          <button data-range="7" class="active">近7天</button>
+          <button data-range="30">近30天</button>
+          <button data-range="90">近90天</button>
+        </div>
+        <div class="stats-row" id="chart-stats"></div>
+        <div class="chart-card">
+          <canvas id="chart"></canvas>
+        </div>
+        <div class="chart-legend" id="chart-legend"></div>
+      </section>
+
+      <!-- 历史 -->
+      <section id="page-history" class="page">
+        <header class="page-head"><h1>历史明细</h1></header>
+        <div class="seg" id="hist-seg">
+          <button data-filter="all" class="active">全部</button>
+          <button data-filter="weight">体重</button>
+          <button data-filter="heart">心率</button>
+          <button data-filter="bp">血压</button>
+        </div>
+        <div id="history-list"></div>
+      </section>
+
+      <!-- 我的 -->
+      <section id="page-me" class="page">
+        <header class="page-head"><h1>我的</h1></header>
+
+        <div class="me-card">
+          <div class="me-row">
+            <span class="me-label">身高(用于计算 BMI)</span>
+            <span class="me-input-wrap">
+              <input type="number" id="height-input" inputmode="decimal" placeholder="如 170" min="80" max="230">
+              <span class="me-unit">cm</span>
+            </span>
+          </div>
+          <div class="me-row">
+            <span class="me-label">目标体重</span>
+            <span class="me-input-wrap">
+              <input type="number" id="goal-input" inputmode="decimal" placeholder="可选" min="20" max="300">
+              <span class="me-unit">kg</span>
+            </span>
+          </div>
+        </div>
+
+        <div class="me-card">
+          <button class="me-btn" id="btn-export-csv">导出 CSV</button>
+          <button class="me-btn" id="btn-export-json">导出 JSON 备份</button>
+          <button class="me-btn" id="btn-import-json">导入 JSON 备份</button>
+          <input type="file" id="import-file" accept="application/json,.json" hidden>
+          <button class="me-btn" id="btn-seed">填入示例数据</button>
+          <button class="me-btn danger" id="btn-clear">清空全部数据</button>
+        </div>
+
+        <div class="me-card about">
+          <p><b>每日健康</b> · 每天记一笔,掌握身体变化</p>
+          <p>体重 / 心率 / 血压,数据仅保存在本机浏览器。</p>
+          <p class="muted">可「添加到主屏幕」作为 App 离线使用。</p>
+        </div>
+      </section>
+    </main>
+
+    <!-- 底部导航 -->
+    <nav id="tabbar">
+      <button class="tab active" data-tab="home">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>
+        <span>首页</span>
+      </button>
+      <button class="tab" data-tab="charts">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg>
+        <span>趋势</span>
+      </button>
+      <button class="fab" id="fab" aria-label="记一笔">
+        <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+      <button class="tab" data-tab="history">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="4" cy="6" r="1.2"/><circle cx="4" cy="12" r="1.2"/><circle cx="4" cy="18" r="1.2"/></svg>
+        <span>明细</span>
+      </button>
+      <button class="tab" data-tab="me">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>
+        <span>我的</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- 记一笔弹层 -->
+  <div id="sheet-backdrop"></div>
+  <div id="sheet" role="dialog" aria-modal="true">
+    <div class="sheet-head">
+      <h3 id="sheet-title">记一笔</h3>
+      <button id="sheet-close" aria-label="关闭">×</button>
+    </div>
+    <div class="seg" id="sheet-type-seg">
+      <button data-type="weight">体重</button>
+      <button data-type="heart">心率</button>
+      <button data-type="bp">血压</button>
+    </div>
+    <div id="sheet-inputs"></div>
+    <div class="sheet-field">
+      <label>时间</label>
+      <input type="datetime-local" id="sheet-time">
+    </div>
+    <div class="sheet-field">
+      <label>备注</label>
+      <input type="text" id="sheet-note" placeholder="可选,如:晨起空腹" maxlength="30">
+    </div>
+    <button id="sheet-save">保存</button>
+    <button id="sheet-delete" class="hidden">删除这条记录</button>
+  </div>
+
+  <div id="toast"></div>
+  <script src="./app.js"></script>
+</body>
+</html>
