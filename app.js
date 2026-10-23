@@ -33,7 +33,8 @@ function dayLabel(ts) {
   if (k === today) return '今天';
   if (k === dayKey(y.getTime())) return '昨天';
   const d = new Date(ts);
-  return `${d.getMonth() + 1}月${d.getDate()}日 周${WEEK[d.getDay()]}`;
+  const yPrefix = d.getFullYear() === new Date().getFullYear() ? '' : `${d.getFullYear()}年`;
+  return `${yPrefix}${d.getMonth() + 1}月${d.getDate()}日 周${WEEK[d.getDay()]}`;
 }
 
 /* ================= 健康判定 ================= */
@@ -104,7 +105,7 @@ function valueText(r) {
 function renderHome() {
   const now = new Date();
   document.getElementById('home-date').textContent =
-    `${now.getMonth() + 1}月${now.getDate()}日 周${WEEK[now.getDay()]}`;
+    `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 周${WEEK[now.getDay()]}`;
   document.getElementById('streak-num').textContent = streakDays();
 
   renderWeightCard();
