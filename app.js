@@ -5,10 +5,14 @@ const LS_REC = 'jk.records.v1';
 const LS_SET = 'jk.settings.v1';
 
 const TYPES = {
-  weight: { key: 'weight', name: '体重', unit: 'kg',   color: '#2f9df8' },
+  weight: { key: 'weight', name: '体重', unit: '斤',   color: '#2f9df8' },
   heart:  { key: 'heart',  name: '心率', unit: 'bpm',  color: '#e5484d' },
   bp:     { key: 'bp',     name: '血压', unit: 'mmHg', color: '#7c5cff' },
 };
+
+// 体重内部按 kg 存储,界面统一按斤显示(1 kg = 2 斤)
+const kg2jin = v => Math.round(v * 20) / 10;
+const jin2kg = v => Math.round(v / 2 * 10) / 10;
 
 let records = [];
 let settings = { height: '', goal: '' };
@@ -98,7 +102,8 @@ const ICONS = {
 
 function valueText(r) {
   if (r.type === 'bp') return `${r.sys}<small>/${r.dia} ${TYPES.bp.unit}</small>`;
-  return `${r.value}<small> ${TYPES[r.type].unit}</small>`;
+  const v = r.type === 'weight' ? kg2jin(r.value) : r.value;
+  return `${v}<small> ${TYPES[r.type].unit}</small>`;
 }
 
 /* ================= 首页 ================= */
@@ -121,16 +126,16 @@ function renderWeightCard() {
   if (!cur) {
     html += `<div class="mc-empty">暂无数据<br>点击下方记一笔</div>`;
   } else {
-    html += `<div class="mc-value">${cur.value.toFixed(1)}<small>kg</small></div>`;
+    html += `<div class="mc-value">${kg2jin(cur.value).toFixed(1)}<small>斤</small></div>`;
     const bmi = bmiInfo();
     if (bmi) html += `<span class="mc-badge ${bmi.cls}">BMI ${bmi.bmi} ${bmi.label}</span>`;
     if (prev) {
-      const diff = cur.value - prev.value;
+      const diff = kg2jin(cur.value) - kg2jin(prev.value);
       const arrow = diff > 0 ? '↑' : diff < 0 ? '↓' : '—';
       const color = diff > 0 ? 'var(--danger)' : diff < 0 ? 'var(--ok)' : 'var(--muted)';
       html += `<div class="mc-sub">较上次 <b style="color:${color}">${arrow}${Math.abs(diff).toFixed(1)}</b></div>`;
     }
-    if (settings.goal) html += `<div class="mc-sub">目标 ${settings.goal} kg</div>`;
+    if (settings.goal) html += `<div class="mc-sub">目标 ${kg2jin(settings.goal)} 斤</div>`;
   }
   el.innerHTML = html;
 }
@@ -279,6 +284,8 @@ function fmtStat(v, metric) {
 
 function renderCharts() {
   const series = buildSeries(chartMetric, chartRange);
+  // 体重图表统一换算为斤
+  if (chartMetric === 'weight') series.forEach(p => { if (p.value != null) p.value = kg2jin(p.value); });
   const statsEl = document.getElementById('chart-stats');
   const legendEl = document.getElementById('chart-legend');
 
@@ -374,28 +381,22 @@ function drawChart(series) {
   }
   if ((n - 1) % step !== 0) ctx.fillText(series[n - 1].label, x(n - 1), h - 8);
 
-  // 折线(跳过空点)
+  // 折线(跨过空点,把相邻数据点直接相连)
   lines.forEach(({ nums, color }) => {
     ctx.strokeStyle = color; ctx.lineWidth = 2.4;
     ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-    let seg = [];
-    const flush = () => {
-      if (seg.length < 2) { seg = []; return; }
+    const pts = [];
+    nums.forEach((v, i) => { if (v != null) pts.push({ i, v }); });
+    if (pts.length >= 2) {
       ctx.beginPath();
-      ctx.moveTo(x(seg[0].i), y(seg[0].v));
-      for (let s = 1; s < seg.length; s++) {
-        const prev = seg[s - 1], cur = seg[s];
+      ctx.moveTo(x(pts[0].i), y(pts[0].v));
+      for (let s = 1; s < pts.length; s++) {
+        const prev = pts[s - 1], cur = pts[s];
         const mx = (x(prev.i) + x(cur.i)) / 2;
         ctx.bezierCurveTo(mx, y(prev.v), mx, y(cur.v), x(cur.i), y(cur.v));
       }
       ctx.stroke();
-      seg = [];
-    };
-    nums.forEach((v, i) => {
-      if (v == null) flush();
-      else seg.push({ i, v });
-    });
-    flush();
+    }
 
     // 数据点
     nums.forEach((v, i) => {
@@ -445,7 +446,7 @@ function sheetInputsHtml(type) {
     </div>`;
   }
   const t = TYPES[type];
-  const ph = type === 'weight' ? '65.0' : '72';
+  const ph = type === 'weight' ? '130.0' : '72';
   return `<div class="big-inputs">
     <div class="big-field"><label>${t.name}</label><div class="wrap"><input type="number" id="in-value" inputmode="decimal" placeholder="${ph}" step="0.1"></div><small>${t.unit}</small></div>
   </div>`;
@@ -469,7 +470,7 @@ function openSheet(type, rec) {
       document.getElementById('in-sys').value = rec.sys;
       document.getElementById('in-dia').value = rec.dia;
     } else {
-      document.getElementById('in-value').value = rec.value;
+      document.getElementById('in-value').value = rec.type === 'weight' ? kg2jin(rec.value) : rec.value;
     }
   }
 
@@ -561,8 +562,8 @@ function saveSheet() {
     const v = parseFloat(document.getElementById('in-value').value);
     if (!v) return toast('请填写数值');
     if (sheetType === 'weight') {
-      if (v < 20 || v > 300) return toast('体重数值超出合理范围');
-      rec.value = Math.round(v * 10) / 10;
+      if (v < 40 || v > 600) return toast('体重数值超出合理范围(斤)');
+      rec.value = jin2kg(v);
     } else {
       if (v < 30 || v > 220) return toast('心率数值超出合理范围');
       rec.value = Math.round(v);
@@ -595,7 +596,7 @@ async function deleteSheet() {
 /* ================= 我的 ================= */
 function renderMe() {
   document.getElementById('height-input').value = settings.height || '';
-  document.getElementById('goal-input').value = settings.goal || '';
+  document.getElementById('goal-input').value = settings.goal ? kg2jin(settings.goal) : '';
 }
 
 function downloadFile(name, content, mime) {
@@ -609,12 +610,12 @@ function downloadFile(name, content, mime) {
 
 function exportCsv() {
   if (!records.length) return toast('暂无数据可导出');
-  const rows = [['类型', '时间', '体重kg', '心率bpm', '收缩压', '舒张压', '备注']];
+  const rows = [['类型', '时间', '体重斤', '心率bpm', '收缩压', '舒张压', '备注']];
   [...records].sort((a, b) => a.ts - b.ts).forEach(r => {
     const t = new Date(r.ts);
     const ts = `${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(t.getDate())} ${pad(t.getHours())}:${pad(t.getMinutes())}`;
     rows.push([TYPES[r.type].name, ts,
-      r.type === 'weight' ? r.value : '',
+      r.type === 'weight' ? kg2jin(r.value) : '',
       r.type === 'heart' ? r.value : '',
       r.type === 'bp' ? r.sys : '',
       r.type === 'bp' ? r.dia : '',
@@ -753,8 +754,8 @@ function bind() {
   });
   document.getElementById('goal-input').addEventListener('change', e => {
     const v = parseFloat(e.target.value);
-    settings.goal = (v >= 20 && v <= 300) ? Math.round(v * 10) / 10 : '';
-    e.target.value = settings.goal;
+    settings.goal = (v >= 40 && v <= 600) ? jin2kg(v) : '';
+    e.target.value = settings.goal ? kg2jin(settings.goal) : '';
     saveSettings(); renderHome();
   });
 
