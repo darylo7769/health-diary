@@ -407,14 +407,26 @@ function drawChart(series) {
       ctx.stroke();
     }
 
-    // 数据点
-    nums.forEach((v, i) => {
-      if (v == null) return;
-      ctx.beginPath();
-      ctx.fillStyle = '#fff'; ctx.strokeStyle = color; ctx.lineWidth = 2;
-      ctx.arc(x(i), y(v), 3, 0, Math.PI * 2);
-      ctx.fill(); ctx.stroke();
-    });
+    // 数据点:点稀疏时画白底描边圆点,较密时画小圆点,很密时只画线
+    const validCount = pts.length;
+    const spacing = validCount >= 2 ? iw / (validCount - 1) : Infinity;
+    if (spacing >= 14) {
+      nums.forEach((v, i) => {
+        if (v == null) return;
+        ctx.beginPath();
+        ctx.fillStyle = '#fff'; ctx.strokeStyle = color; ctx.lineWidth = 2;
+        ctx.arc(x(i), y(v), 3, 0, Math.PI * 2);
+        ctx.fill(); ctx.stroke();
+      });
+    } else if (spacing >= 7) {
+      ctx.fillStyle = color;
+      nums.forEach((v, i) => {
+        if (v == null) return;
+        ctx.beginPath();
+        ctx.arc(x(i), y(v), 1.6, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
 
     // 最新点高亮 + 数值
     for (let i = n - 1; i >= 0; i--) {
@@ -805,7 +817,7 @@ refreshAll();
 
 /* ================= PWA 注册 & 自动更新 ================= */
 // 发布新版本时,此常量需与 sw.js 的 CACHE 同步 +1
-const APP_VERSION = 'v6';
+const APP_VERSION = 'v7';
 
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   navigator.serviceWorker.register('./sw.js').catch(() => {});
