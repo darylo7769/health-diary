@@ -803,6 +803,34 @@ load();
 bind();
 refreshAll();
 
+/* ================= PWA 注册 & 自动更新 ================= */
+// 发布新版本时,此常量需与 sw.js 的 CACHE 同步 +1
+const APP_VERSION = 'v6';
+
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   navigator.serviceWorker.register('./sw.js').catch(() => {});
+
+  // 新 SW 下载完并接管后,刷新一次加载新版(会话内只刷新一次,防止离线时死循环)
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (sessionStorage.getItem('jk-reloaded')) return;
+    sessionStorage.setItem('jk-reloaded', '1');
+    location.reload();
+  });
+
+  (async () => {
+    try {
+      // 强制从网络拉取线上 sw.js 比对版本,绕过 iOS 的 SW 更新节流
+      const res = await fetch('./sw.js?t=' + Date.now(), { cache: 'no-store' });
+      const online = (await res.text()).match(/jk-cache-(v\d+)/);
+      if (!online || online[1] === APP_VERSION) return;
+      const reg = await navigator.serviceWorker.ready;
+      await reg.update();               // 显式触发下载新版 sw.js
+      toast('发现新版本,正在自动更新...');
+      setTimeout(() => {                // 兜底:3 秒后无论是否接管都刷新
+        if (sessionStorage.getItem('jk-reloaded')) return;
+        sessionStorage.setItem('jk-reloaded', '1');
+        location.reload();
+      }, 3000);
+    } catch { /* 离线或网络异常时静默 */ }
+  })();
 }

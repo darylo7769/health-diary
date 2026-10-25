@@ -1,4 +1,4 @@
-const CACHE = 'jk-cache-v5';
+const CACHE = 'jk-cache-v6';
 const ASSETS = [
   './',
   './index.html',
