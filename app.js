@@ -100,6 +100,14 @@ const ICONS = {
   bp: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c3.2 4.2 6 7 6 10a6 6 0 1 1-12 0c0-3 2.8-5.8 6-10z"/></svg>',
 };
 
+// 卡片数字自适应:三列卡片窄(内宽约 83px),数字越长字号越小,保证单位不换行
+function fitSize(text) {
+  const len = String(text).length;
+  if (len >= 6) return 18;   // 120/80
+  if (len >= 5) return 21;   // 131.6
+  return 26;
+}
+
 function valueText(r) {
   if (r.type === 'bp') return `${r.sys}<small>/${r.dia} ${TYPES.bp.unit}</small>`;
   const v = r.type === 'weight' ? kg2jin(r.value) : r.value;
@@ -126,9 +134,10 @@ function renderWeightCard() {
   if (!cur) {
     html += `<div class="mc-empty">暂无数据<br>点击下方记一笔</div>`;
   } else {
-    html += `<div class="mc-value">${kg2jin(cur.value).toFixed(1)}<small>斤</small></div>`;
+    const jin = kg2jin(cur.value).toFixed(1);
+    html += `<div class="mc-value" style="font-size:${fitSize(jin)}px">${jin}<small>斤</small></div>`;
     const bmi = bmiInfo();
-    if (bmi) html += `<span class="mc-badge ${bmi.cls}">BMI ${bmi.bmi} ${bmi.label}</span>`;
+    if (bmi) html += `<span class="mc-badge ${bmi.cls}">BMI ${bmi.bmi}·${bmi.label}</span>`;
     if (prev) {
       const diff = kg2jin(cur.value) - kg2jin(prev.value);
       const arrow = diff > 0 ? '↑' : diff < 0 ? '↓' : '—';
@@ -148,7 +157,7 @@ function renderHeartCard() {
     html += `<div class="mc-empty">暂无数据<br>点击下方记一笔</div>`;
   } else {
     const st = hrStatus(cur.value);
-    html += `<div class="mc-value">${cur.value}<small>bpm</small></div>
+    html += `<div class="mc-value" style="font-size:${fitSize(cur.value)}px">${cur.value}<small>bpm</small></div>
              <span class="mc-badge ${st.cls}">${st.label}</span>
              <div class="mc-sub">${dayLabel(cur.ts)} ${fmtTime(cur.ts)}</div>`;
   }
@@ -163,7 +172,7 @@ function renderBpCard() {
     html += `<div class="mc-empty">暂无数据<br>点击下方记一笔</div>`;
   } else {
     const cat = bpCategory(cur.sys, cur.dia);
-    html += `<div class="mc-value">${cur.sys}<span class="sep">/</span>${cur.dia}<small>mmHg</small></div>
+    html += `<div class="mc-value" style="font-size:${fitSize(cur.sys + '/' + cur.dia)}px">${cur.sys}<span class="sep">/</span>${cur.dia}<small>mmHg</small></div>
              <span class="mc-badge ${cat.cls}">${cat.label}</span>
              <div class="mc-sub">${dayLabel(cur.ts)} ${fmtTime(cur.ts)}</div>`;
   }

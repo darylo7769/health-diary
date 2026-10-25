@@ -86,13 +86,14 @@ input { font-family: inherit; }
   display: inline-flex; align-items: center; justify-content: center;
   color: #fff; background: var(--c, var(--primary));
 }
-.mc-value { margin-top: 10px; font-size: 26px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+.mc-value { margin-top: 10px; font-size: 26px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .mc-value small { font-size: 11px; font-weight: 500; color: var(--muted); margin-left: 2px; }
 .mc-value .sep { color: var(--muted); font-weight: 600; margin: 0 1px; }
 .mc-sub { margin-top: 8px; font-size: 11px; color: var(--muted); }
 .mc-badge {
   display: inline-block; margin-top: 8px; align-self: flex-start;
-  font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px;
+  font-size: 10px; font-weight: 700; padding: 3px 7px; border-radius: 999px;
+  white-space: nowrap;
   background: #f0f2f5; color: var(--muted);
 }
 .mc-badge.ok { background: rgba(24,160,88,.12); color: var(--ok); }
