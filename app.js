@@ -12,7 +12,8 @@ const TYPES = {
 
 // 体重内部按 kg 存储,界面统一按斤显示(1 kg = 2 斤)
 const kg2jin = v => Math.round(v * 20) / 10;
-const jin2kg = v => Math.round(v / 2 * 10) / 10;
+// kg 保留 2 位小数(0.02 斤精度),否则斤的奇数十分位会被四舍五入跳变(131.1 斤 → 131.2 斤)
+const jin2kg = v => Math.round(v * 50) / 100;
 
 let records = [];
 let settings = { height: '', goal: '' };
