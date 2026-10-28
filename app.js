@@ -818,7 +818,7 @@ refreshAll();
 
 /* ================= PWA 注册 & 自动更新 ================= */
 // 发布新版本时,此常量需与 sw.js 的 CACHE 同步 +1
-const APP_VERSION = 'v7';
+const APP_VERSION = 'v8';
 
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   navigator.serviceWorker.register('./sw.js').catch(() => {});
