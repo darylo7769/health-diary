@@ -78,15 +78,37 @@
         <div class="chart-legend" id="chart-legend"></div>
       </section>
 
-      <!-- 历史 -->
-      <section id="page-history" class="page">
+      <!-- 历史明细 -->
+      <section id="page-history" class="page cal-mode">
         <header class="page-head"><h1>历史明细</h1></header>
+        <div class="seg" id="hist-view-seg">
+          <button data-view="calendar" class="active">日历</button>
+          <button data-view="list">列表</button>
+        </div>
         <div class="seg" id="hist-seg">
           <button data-filter="all" class="active">全部</button>
           <button data-filter="weight">体重</button>
           <button data-filter="heart">心率</button>
           <button data-filter="bp">血压</button>
         </div>
+
+        <div id="history-calendar">
+          <div class="cal-layout">
+            <div class="cal-card">
+              <div class="cal-head">
+                <button type="button" class="cal-nav" id="cal-prev" aria-label="上个月">‹</button>
+                <div class="cal-title" id="cal-title">--</div>
+                <button type="button" class="cal-nav" id="cal-next" aria-label="下个月">›</button>
+                <button type="button" class="cal-today" id="cal-today">今天</button>
+              </div>
+              <div class="cal-week"><span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span></div>
+              <div class="cal-grid" id="cal-grid"></div>
+              <div class="cal-legend" id="cal-legend"></div>
+            </div>
+            <div id="cal-detail"></div>
+          </div>
+        </div>
+
         <div id="history-list"></div>
       </section>
 

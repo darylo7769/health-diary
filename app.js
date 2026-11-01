@@ -21,8 +21,9 @@ let settings = { height: '', goal: '' };
 function load() {
   try { records = JSON.parse(localStorage.getItem(LS_REC)) || []; } catch { records = []; }
   try { settings = Object.assign({ height: '', goal: '' }, JSON.parse(localStorage.getItem(LS_SET)) || {}); } catch {}
+  buildDayIndex();
 }
-function saveRecords() { localStorage.setItem(LS_REC, JSON.stringify(records)); }
+function saveRecords() { localStorage.setItem(LS_REC, JSON.stringify(records)); buildDayIndex(); }
 function saveSettings() { localStorage.setItem(LS_SET, JSON.stringify(settings)); }
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -110,7 +111,8 @@ function fitSize(text) {
 }
 
 function valueText(r) {
-  if (r.type === 'bp') return `${r.sys}<small>/${r.dia} ${TYPES.bp.unit}</small>`;
+  // 高压主字号,低压略小一档形成层次,斜杠与单位最小
+  if (r.type === 'bp') return `${r.sys}<small>/</small><span class="dia">${r.dia}</span><small> ${TYPES.bp.unit}</small>`;
   const v = r.type === 'weight' ? kg2jin(r.value) : r.value;
   return `${v}<small> ${TYPES[r.type].unit}</small>`;
 }
@@ -213,6 +215,12 @@ function escapeHtml(s) {
 /* ================= 历史 ================= */
 let histFilter = 'all';
 function renderHistory() {
+  // 日历视图:月历 + 当日记录
+  if (calView === 'calendar') {
+    renderCalendar();
+    renderCalDetail();
+    return;
+  }
   const el = document.getElementById('history-list');
   let list = [...records].sort((a, b) => b.ts - a.ts);
   if (histFilter !== 'all') list = list.filter(r => r.type === histFilter);
@@ -234,6 +242,125 @@ function renderHistory() {
     </div>`;
   }
   el.innerHTML = html;
+}
+
+/* ================= 日历 ================= */
+// 按日期预分组索引:数据变更时单次遍历建一次,之后任意一天 O(1) 查询
+let dayIndex = new Map();
+function buildDayIndex() {
+  const idx = new Map();
+  for (const r of records) {
+    const k = dayKey(r.ts);
+    const arr = idx.get(k);
+    if (arr) arr.push(r); else idx.set(k, [r]);
+  }
+  for (const arr of idx.values()) arr.sort((a, b) => b.ts - a.ts);
+  dayIndex = idx;
+}
+function recordsOfDay(key) { return dayIndex.get(key) || []; }
+
+let calView = 'calendar';                 // 'calendar' | 'list'
+let calCursor = new Date();               // 当前展示的月份
+let calSelected = dayKey(Date.now());     // 当前选中日期
+let calLoadToken = 0;                     // 防止快速连点导致渲染乱序
+
+const keyOf = (y, m, d) => `${y}-${pad(m + 1)}-${pad(d)}`;
+const keyToDate = k => { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d); };
+
+function renderCalendar() {
+  const y = calCursor.getFullYear(), m = calCursor.getMonth();
+  document.getElementById('cal-title').textContent = `${y}年${m + 1}月`;
+  const lead = new Date(y, m, 1).getDay();          // 本月 1 号是周几
+  const days = new Date(y, m + 1, 0).getDate();     // 本月天数
+  const todayK = dayKey(Date.now());
+  let html = '';
+  for (let i = 0; i < lead; i++) html += '<div class="cal-cell blank" aria-hidden="true"></div>';
+  for (let d = 1; d <= days; d++) {
+    const k = keyOf(y, m, d);
+    const recs = recordsOfDay(k);
+    const cls = ['cal-cell'];
+    if (recs.length) cls.push('has');
+    if (k === todayK) cls.push('today');
+    if (k === calSelected) cls.push('selected');
+    // 标记点:按类型去重,最多 3 个(体重/心率/血压)
+    const dots = recs.length
+      ? `<span class="cal-dots">${[...new Set(recs.map(r => r.type))]
+          .map(t => `<i style="background:${TYPES[t].color}"></i>`).join('')}</span>`
+      : '<span class="cal-dots"></span>';
+    const label = `${m + 1}月${d}日${recs.length ? `,${recs.length} 条记录` : ',无记录'}`;
+    html += `<button type="button" class="${cls.join(' ')}" data-day="${k}" aria-label="${label}"><span class="cal-num">${d}</span>${dots}</button>`;
+  }
+  document.getElementById('cal-grid').innerHTML = html;
+}
+
+function renderCalLegend() {
+  document.getElementById('cal-legend').innerHTML =
+    Object.values(TYPES).map(t => `<span><i style="background:${t.color}"></i>${t.name}</span>`).join('');
+}
+
+function renderCalDetail() {
+  const el = document.getElementById('cal-detail');
+  if (!calSelected) {
+    el.innerHTML = `<div class="empty-state"><span class="big">📅</span>选择上方日期,查看当天记录</div>`;
+    return;
+  }
+  const label = dayLabel(keyToDate(calSelected).getTime());
+  const recs = recordsOfDay(calSelected);
+  const head = `<div class="cal-detail-head">
+      <div class="cal-detail-title">${label}</div>
+      <span class="cal-count">${recs.length} 条记录</span>
+    </div>`;
+  if (!recs.length) {
+    el.innerHTML = head + `<div class="empty-state"><span class="big">🌱</span>这一天还没有记录</div>
+      <button type="button" class="cal-quick-add" data-day="${calSelected}">补记一笔</button>`;
+    return;
+  }
+  el.innerHTML = head + `<div class="rec-list">${recs.map(recItemHtml).join('')}</div>`;
+}
+
+function calSetLoading() {
+  const loading = '<div class="cal-loading"><span class="spin"></span>加载中…</div>';
+  document.getElementById('cal-grid').innerHTML = loading;
+  document.getElementById('cal-detail').innerHTML = loading;
+}
+
+// 切换月份后,若选中日期不在新月份则取消选中
+function calSyncSelection(y, m) {
+  if (calSelected && !calSelected.startsWith(`${y}-${pad(m + 1)}`)) calSelected = null;
+}
+
+function calShiftMonth(delta) {
+  const token = ++calLoadToken;
+  calSetLoading();
+  setTimeout(() => {
+    if (token !== calLoadToken) return;   // 已被更新的切换覆盖
+    calCursor = new Date(calCursor.getFullYear(), calCursor.getMonth() + delta, 1);
+    calSyncSelection(calCursor.getFullYear(), calCursor.getMonth());
+    renderCalendar();
+    renderCalDetail();
+  }, 140);
+}
+
+function calGotoToday() {
+  const now = new Date();
+  const same = calCursor.getFullYear() === now.getFullYear() && calCursor.getMonth() === now.getMonth();
+  const token = ++calLoadToken;
+  calCursor = new Date(now.getFullYear(), now.getMonth(), 1);
+  calSelected = dayKey(now.getTime());
+  if (same) { renderCalendar(); renderCalDetail(); return; }
+  calSetLoading();
+  setTimeout(() => {
+    if (token !== calLoadToken) return;
+    renderCalendar();
+    renderCalDetail();
+  }, 140);
+}
+
+// 保存后让日历定位到刚记的那天
+function calFocusDay(ts) {
+  const d = new Date(ts);
+  calCursor = new Date(d.getFullYear(), d.getMonth(), 1);
+  calSelected = dayKey(ts);
 }
 
 /* ================= 趋势图表 ================= */
@@ -474,7 +601,7 @@ function sheetInputsHtml(type) {
   </div>`;
 }
 
-function openSheet(type, rec) {
+function openSheet(type, rec, defaultTs) {
   editingId = rec ? rec.id : null;
   sheetType = rec ? rec.type : (type || 'weight');
   document.getElementById('sheet-title').textContent = rec ? '编辑记录' : '记一笔';
@@ -483,7 +610,7 @@ function openSheet(type, rec) {
     b.classList.toggle('disabled', !!rec);
   });
   sheetInputs.innerHTML = sheetInputsHtml(sheetType);
-  sheetTime.value = toLocalInput(rec ? rec.ts : Date.now());
+  sheetTime.value = toLocalInput(rec ? rec.ts : (defaultTs || Date.now()));
   sheetNote.value = rec ? (rec.note || '') : '';
   document.getElementById('sheet-delete').classList.toggle('hidden', !rec);
 
@@ -602,6 +729,7 @@ function saveSheet() {
   }
   saveRecords();
   closeSheet();
+  if (calView === 'calendar') calFocusDay(rec.ts);   // 日历视图定位到刚保存的日期
   refreshAll();
 }
 
@@ -746,6 +874,37 @@ function bind() {
     renderHistory();
   });
 
+  // ---------- 日历 ----------
+  document.getElementById('hist-view-seg').addEventListener('click', e => {
+    const btn = e.target.closest('button'); if (!btn) return;
+    calView = btn.dataset.view;
+    document.querySelectorAll('#hist-view-seg button').forEach(b => b.classList.toggle('active', b === btn));
+    document.getElementById('page-history').classList.toggle('cal-mode', calView === 'calendar');
+    renderHistory();
+  });
+  document.getElementById('cal-prev').addEventListener('click', () => calShiftMonth(-1));
+  document.getElementById('cal-next').addEventListener('click', () => calShiftMonth(1));
+  document.getElementById('cal-today').addEventListener('click', calGotoToday);
+
+  document.getElementById('cal-grid').addEventListener('click', e => {
+    const cell = e.target.closest('.cal-cell[data-day]'); if (!cell) return;
+    calSelected = cell.dataset.day;
+    document.querySelectorAll('#cal-grid .cal-cell.selected').forEach(c => c.classList.remove('selected'));
+    cell.classList.add('selected');
+    renderCalDetail();
+  });
+
+  // 空状态补记:打开记一笔弹层,时间预填为选中日期
+  document.getElementById('cal-detail').addEventListener('click', e => {
+    const btn = e.target.closest('.cal-quick-add'); if (!btn) return;
+    const d = keyToDate(btn.dataset.day);
+    const now = new Date();
+    d.setHours(now.getHours(), now.getMinutes(), 0, 0);
+    openSheet('weight', null, d.getTime());
+  });
+
+  renderCalLegend();
+
   document.getElementById('sheet-type-seg').addEventListener('click', e => {
     const btn = e.target.closest('button');
     if (!btn || btn.classList.contains('disabled')) return;
@@ -818,7 +977,7 @@ refreshAll();
 
 /* ================= PWA 注册 & 自动更新 ================= */
 // 发布新版本时,此常量需与 sw.js 的 CACHE 同步 +1
-const APP_VERSION = 'v8';
+const APP_VERSION = 'v12';
 
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   navigator.serviceWorker.register('./sw.js').catch(() => {});

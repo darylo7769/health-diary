@@ -15,6 +15,7 @@
   --low: #2f9df8;
   --radius: 16px;
   --tabbar-h: 64px;
+  --shell-w: 480px;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -29,11 +30,15 @@ button { font-family: inherit; border: none; background: none; cursor: pointer; 
 input { font-family: inherit; }
 
 #app {
-  max-width: 480px;
+  max-width: var(--shell-w);
   margin: 0 auto;
   min-height: 100%;
   position: relative;
   background: var(--bg);
+}
+/* 桌面端放宽外壳,日历可双栏排布 */
+@media (min-width: 960px) {
+  :root { --shell-w: 720px; }
 }
 
 #pages { padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 24px); }
@@ -145,6 +150,8 @@ input { font-family: inherit; }
 .rec-right { text-align: right; flex-shrink: 0; }
 .rec-value { font-size: 17px; font-weight: 800; font-variant-numeric: tabular-nums; }
 .rec-value small { font-size: 11px; font-weight: 500; color: var(--muted); }
+/* 低压比高压小一档并降色,形成主次层次 */
+.rec-value .dia { font-size: 14px; font-weight: 700; color: var(--muted); }
 .rec-time { font-size: 11px; color: var(--muted); margin-top: 2px; }
 
 .day-group { padding: 0 16px; }
@@ -237,14 +244,14 @@ input { font-family: inherit; }
 /* ---------- 底部导航 ---------- */
 #tabbar {
   position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
-  width: 100%; max-width: 480px;
+  width: 100%; max-width: var(--shell-w);
   height: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
   padding-bottom: env(safe-area-inset-bottom);
-  background: rgba(255,255,255,.82);
+  background: rgba(255,255,255,.94);
   backdrop-filter: blur(20px) saturate(1.6);
   -webkit-backdrop-filter: blur(20px) saturate(1.6);
-  border-top: none;
-  box-shadow: 0 -1px 0 rgba(0,0,0,.04), 0 -8px 24px rgba(20,40,60,.06);
+  border-top: 1px solid rgba(244,114,154,.18);
+  box-shadow: 0 -1px 0 rgba(0,0,0,.04), 0 -8px 24px rgba(20,40,60,.10);
   display: flex; align-items: stretch;
   z-index: 50;
 }
@@ -370,3 +377,112 @@ input { font-family: inherit; }
   font-family: ui-monospace, monospace;
   background: #fafbfc; box-sizing: border-box;
 }
+
+/* ---------- 日历(明细页) ---------- */
+#history-calendar { display: none; }
+#page-history.cal-mode #history-calendar { display: block; }
+#page-history.cal-mode #history-list { display: none; }
+#page-history.cal-mode #hist-seg { display: none; }
+
+.cal-layout {
+  display: grid; grid-template-columns: 1fr; gap: 14px;
+  padding: 12px 16px 0; align-items: start;
+}
+/* 桌面端:日历在左,当天记录在右 */
+@media (min-width: 960px) {
+  .cal-layout { grid-template-columns: 330px minmax(0, 1fr); gap: 18px; }
+}
+
+.cal-card {
+  background: var(--card); border-radius: var(--radius);
+  padding: 14px 12px 12px;
+  box-shadow: 0 2px 8px rgba(20, 40, 60, .05);
+}
+.cal-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.cal-nav {
+  width: 32px; height: 32px; border-radius: 10px; flex-shrink: 0;
+  background: #f4f6f8; color: var(--muted);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; line-height: 1;
+  transition: background .12s, transform .12s;
+}
+.cal-nav:active { background: #eceff3; transform: scale(.92); }
+.cal-title {
+  flex: 1; text-align: center; font-size: 15px; font-weight: 800;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.cal-today {
+  flex-shrink: 0; padding: 7px 13px; border-radius: 999px;
+  font-size: 12px; font-weight: 700; color: var(--primary);
+  background: rgba(244, 114, 154, .12);
+  transition: transform .12s;
+}
+.cal-today:active { transform: scale(.94); }
+
+.cal-week, .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.cal-week span {
+  text-align: center; font-size: 11px; font-weight: 600;
+  color: var(--muted); padding: 4px 0 6px;
+}
+.cal-cell {
+  height: 44px; border-radius: 12px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  font-size: 13px; font-weight: 600; color: var(--text);
+  font-family: inherit;
+  transition: background .12s, transform .12s, box-shadow .12s;
+}
+.cal-cell.blank { visibility: hidden; pointer-events: none; }
+.cal-cell.has { background: rgba(244, 114, 154, .07); }
+.cal-cell.has .cal-num { font-weight: 800; }
+.cal-cell.today { box-shadow: inset 0 0 0 1.5px var(--primary); }
+.cal-cell.today .cal-num { color: var(--primary); }
+.cal-cell.selected {
+  background: linear-gradient(135deg, var(--primary), #fbb0c4);
+  box-shadow: 0 6px 14px rgba(244, 114, 154, .35);
+}
+.cal-cell.selected .cal-num { color: #fff; }
+.cal-cell:active { transform: scale(.9); }
+.cal-dots { display: flex; gap: 3px; height: 5px; }
+.cal-dots i { width: 5px; height: 5px; border-radius: 50%; display: block; }
+
+.cal-legend {
+  display: flex; justify-content: center; gap: 14px;
+  padding-top: 12px; font-size: 10px; color: var(--muted);
+}
+.cal-legend i {
+  display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+  margin-right: 4px; vertical-align: 1px;
+}
+
+.cal-detail-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  gap: 8px; padding: 2px 4px 10px;
+}
+.cal-detail-title { font-size: 14px; font-weight: 800; }
+.cal-detail-head .cal-count { font-size: 11px; color: var(--muted); flex-shrink: 0; }
+.cal-detail .rec-list { padding: 0; }
+.cal-detail .empty-state { padding: 36px 0 20px; }
+
+.cal-quick-add {
+  display: block; margin: 4px auto 0; padding: 10px 20px; border-radius: 999px;
+  background: rgba(244, 114, 154, .12); color: var(--primary);
+  font-size: 13px; font-weight: 700; font-family: inherit;
+  transition: transform .12s;
+}
+.cal-quick-add:active { transform: scale(.95); }
+
+/* 月份切换的加载态 */
+.cal-loading {
+  grid-column: 1 / -1;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  color: var(--muted); font-size: 12px;
+}
+.cal-grid .cal-loading { min-height: 260px; }
+.cal-detail > .cal-loading { min-height: 160px; }
+.spin {
+  width: 16px; height: 16px; border-radius: 50%;
+  border: 2px solid rgba(244, 114, 154, .25);
+  border-top-color: var(--primary);
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
